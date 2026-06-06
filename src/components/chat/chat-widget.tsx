@@ -11,7 +11,15 @@ import { ChatBooking, type BookingResult } from "./chat-booking";
 
 type Msg = { role: "user" | "assistant"; content: string; at: string };
 
-const CHAT_URL = process.env.NEXT_PUBLIC_CHATBOT_URL || "/api/chat";
+// Resolve the chatbot endpoint. Tolerates the URL being set to the service
+// root (e.g. ".../onrender.com" or trailing slash) by appending "/chat".
+function resolveChatUrl(raw?: string): string {
+  if (!raw) return "/api/chat";
+  const u = raw.trim().replace(/\/+$/, "");
+  if (!u) return "/api/chat";
+  return /\/chat$/.test(u) ? u : `${u}/chat`;
+}
+const CHAT_URL = resolveChatUrl(process.env.NEXT_PUBLIC_CHATBOT_URL);
 
 const QUICK = [
   { label: "Book a table", icon: CalendarHeart, action: "book" as const },
