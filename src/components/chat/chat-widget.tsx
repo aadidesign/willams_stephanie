@@ -98,16 +98,28 @@ export function ChatWidget() {
 
   async function callLLM(text: string, history: Msg[]) {
     setTyping(true);
+    const body = JSON.stringify({
+      message: text,
+      history: history.map((m) => ({ role: m.role, content: m.content })),
+    });
+    const ask = async (url: string) => {
+      const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body });
+      if (!res.ok) throw new Error(`status ${res.status}`);
+      return res.json();
+    };
     try {
-      const res = await fetch(CHAT_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, history: history.map((m) => ({ role: m.role, content: m.content })) }),
-      });
-      const data = await res.json();
-      push("assistant", data.reply || "…");
+      let data;
+      try {
+        data = await ask(CHAT_URL);
+      } catch {
+        // Self-heal: if the external chatbot (Render) is asleep/misconfigured,
+        // fall back to the same-origin /api/chat route so Bella still answers.
+        if (CHAT_URL !== "/api/chat") data = await ask("/api/chat");
+        else throw new Error("unreachable");
+      }
+      push("assistant", data?.reply || "…");
     } catch {
-      push("assistant", `I'm having trouble connecting just now. Please call us at ${siteContent.contact.phone}.`);
+      push("assistant", `I'm having a little trouble connecting right now. Please try again in a moment, or call us at ${siteContent.contact.phone}.`);
     } finally {
       setTyping(false);
     }
